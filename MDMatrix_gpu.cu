@@ -17,10 +17,18 @@ namespace RDK {
         int tid = threadIdx.x;
         int id = blockIdx.x * blockDim.x + threadIdx.x;
         int step = gridDim.x * blockDim.x;
+        int size = rows * cols;
 
-        if (id < rows * cols) {
-            for (int c = id; c < rows * cols; c += step) {
+        //in case of kernels' number > matrix' size
+        if(step >= size) {
+            if(id < size) {
                 data[id] = defValue;
+            }
+        } else {
+            for(int c = id; c < size; c += step) {
+                if(c < size) {
+                    data[c] = defValue;
+                }
             }
         }
     }
@@ -31,10 +39,18 @@ namespace RDK {
         int tid = threadIdx.x;
         int id = blockIdx.x * blockDim.x + threadIdx.x;
         int step = gridDim.x * blockDim.x;
+        int size = rows * cols;
 
-        if (id < rows * cols) {
-            for (int c = id; c < rows * cols; c += step) {
+        //in case of kernels' number > matrix' size
+        if(step >= size) {
+            if(id < size) {
                 dest_data[id] = src_data[id];
+            }
+        } else {
+            for(int c = id; c < size; c += step) {
+                if(c < size) {
+                    dest_data[c] = src_data[c];
+                }
             }
         }
     }
@@ -44,26 +60,31 @@ namespace RDK {
     __global__ void _FillMatrixValue_2dim(T* dest_data, T defValue, int rows, int cols, int start_row, int start_col) {
         int tid = threadIdx.x + threadIdx.y * blockDim.x;
         int bid = blockIdx.x + blockIdx.y * gridDim.x;
-        int nthreads = blockDim.x * blockDim.y;
-        int id = tid + nthreads * bid;
+        int nthreads = blockDim.x * blockDim.y; //number of threads per block
+        int id = tid + nthreads * bid; //absolute id
+        int step_x = blockDim.x * gridDim.x;;
+        int step_y = blockDim.y * gridDim.y;
+        int size = cols * rows;
 
-        int c_row = blockIdx.y * blockDim.y + threadIdx.y;
-        int c_col = blockIdx.x * blockDim.x + threadIdx.x;
+        int c_row = blockIdx.y * blockDim.y + threadIdx.y; //current row
+        int c_col = blockIdx.x * blockDim.x + threadIdx.x; //current col
 
-        if (id < rows * cols) {
-            if (c_row >= start_row) {
-                for (int i = c_row; i < rows; c_row += blockDim.x * gridDim.x) {
-                    if (c_col >= start_col) {
-                        for (int j = c_col; j < cols; c_col += blockDim.y * gridDim.y) {
-                            dest_data[i * cols + j] = defValue;
-                        }
-                    }
+        if(step_x * step_y >= size) {
+            if(id < size && c_row >= start_row && c_col >= start_col) {
+                dest_data[c_row * cols + c_col] = defValue;
+            }
+        } else {
+            for(int i = c_row; i < rows; i += step_y) {
+                for(int j = c_col; j < cols; j += step_x) {
+                    if(i >= start_row && j >= start_col && i*j < size)
+                        dest_data[i * cols + j] = defValue;
                 }
             }
         }
     }
 
     //_AddMatrix
+    остановился тут
     template<class T>
     __global__ void _AddMatrix(T* dest_data, T* sec_data, size_t size)
     {
@@ -71,9 +92,15 @@ namespace RDK {
         size_t id = blockDim.x * blockIdx.x + threadIdx.x;
         size_t step = gridDim.x * blockDim.x;
 
-        if (id < size) {
-            for (size_t c = id; c < size; c += step) {
-                dest_data[c] = dest_data[c] + sec_data[c];
+        if(step >= size) {
+            if(id < size) {
+                dest_data[id] += sec_data[id];
+            }
+        } else {
+            for(int c = id; c < size; c += step) {
+                if(c < size) {
+                    dest_data[c] += sec_data[c];
+                }
             }
         }
     }
@@ -86,9 +113,15 @@ namespace RDK {
         size_t id = blockDim.x * blockIdx.x + threadIdx.x;
         size_t step = gridDim.x * blockDim.x;
 
-        if (id < size) {
-            for (size_t c = id; c < size; c += step) {
-                dest_data[c] = dest_data[c] - sec_data[c];
+        if(step >= size) {
+            if(id < size) {
+                dest_data[id] -= sec_data[id];
+            }
+        } else {
+            for(int c = id; c < size; c += step) {
+                if(c < size) {
+                    dest_data[c] -= sec_data[c];
+                }
             }
         }
     }
